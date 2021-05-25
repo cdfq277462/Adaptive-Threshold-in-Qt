@@ -22,13 +22,20 @@ public:
 private slots:
     void on_pushButton_open_clicked();
 
-    void readImg();
+    bool readImg();
 
     double meanThreshold(cv::Mat);
 
-    double calculateMean(cv::Mat);
+    double meanStdThreshold(cv::Mat);
+
+    // useless
+    // double calculateMean(cv::Mat);
+
+    cv::Mat kcircle();
 
     void on_pushButton_clicked();
+
+    bool checkImgSize(QImage);
 
 private:
     Ui::Dialog *ui;
