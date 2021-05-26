@@ -31,7 +31,9 @@ private slots:
     // useless
     // double calculateMean(cv::Mat);
 
-    cv::Mat kcircle();
+    cv::Mat kcircle(int);
+
+    cv::Mat morphologyClosingOpening(cv::Mat);
 
     void on_pushButton_clicked();
 
