@@ -33,11 +33,15 @@ private slots:
 
     cv::Mat kcircle(int);
 
-    cv::Mat morphologyClosingOpening(cv::Mat);
+    cv::Mat morphologyClosingOpening(cv::Mat, int);
 
     void on_pushButton_clicked();
 
     bool checkImgSize(QImage);
+
+    void on_pushButton_2_clicked();
+
+    void on_pushButton_3_clicked();
 
 private:
     Ui::Dialog *ui;

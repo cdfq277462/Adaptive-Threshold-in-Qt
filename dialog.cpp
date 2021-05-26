@@ -1,6 +1,7 @@
 #include "dialog.h"
 #include "ui_dialog.h"
 #include "opencv2/opencv.hpp"
+#include "adjustthreshold.h"
 
 #include <QFileDialog>
 #include <QDebug>
@@ -21,9 +22,16 @@ Dialog::~Dialog()
 
 void Dialog::on_pushButton_open_clicked()
 {
+    int64 t0 = cv::getTickCount();
+
     if(readImg())
         ui->label_meanThreshold->setText("Threshold :" + QString::number(meanThreshold(grayImg) /255));
+
+    int64 t1 = cv::getTickCount();
+    double t = (t1-t0) * 1000 /cv::getTickFrequency();
+    qDebug() << "Detecting time on a single frame: " << t <<"ms";
 }
+
 void Dialog::on_pushButton_clicked()
 {
     if(readImg())
@@ -80,8 +88,8 @@ double Dialog::meanThreshold(cv::Mat src_Mat)
         cv::Scalar tmp_mean1, tmp_stddev1, tmp_mean2, tmp_stddev2;
 
         // calculate two group' mean & std except 0
-        cv::meanStdDev(dst_Mat1, tmp_mean1, tmp_stddev1, dst_Mat1 > 0);
-        cv::meanStdDev(dst_Mat2, tmp_mean2, tmp_stddev2, dst_Mat2 > 0);
+        cv::meanStdDev(dst_Mat1, tmp_mean1, tmp_stddev1, src_Mat > threshold);
+        cv::meanStdDev(dst_Mat2, tmp_mean2, tmp_stddev2, src_Mat < threshold);
 
         // Tnext = (1/(s1+s2))*(s1*mean(fd(gd)) + s2*mean(fd(~gd)));
         // Tnext = (0.5)*(mean(fd(gd)) + mean(fd(~gd)));
@@ -96,12 +104,12 @@ double Dialog::meanThreshold(cv::Mat src_Mat)
     qDebug() << threshold /255;
 
 
-    // dsplay
+    // display
     cv::Mat noneDilationMat(src_Mat.rows, src_Mat.cols, src_Mat.type());
     cv::Mat dilatedMat(noneDilationMat.rows, noneDilationMat.cols, noneDilationMat.type());
     cv::threshold(src_Mat, noneDilationMat, threshold, 255, cv::THRESH_BINARY);
 
-    dilatedMat = morphologyClosingOpening(noneDilationMat);
+    dilatedMat = morphologyClosingOpening(noneDilationMat, 3);
 
     // change cv::Mat to QImgae to display
     QImage q_dilatedMat(dilatedMat.data, dilatedMat.cols, dilatedMat.rows, dilatedMat.step, QImage::Format_Grayscale8);
@@ -161,7 +169,7 @@ double Dialog::meanStdThreshold(cv::Mat src_Mat)
 
     cv::threshold(src_Mat, noneDilationMat, threshold, 255, cv::THRESH_BINARY);
 
-    dilatedMat = morphologyClosingOpening(noneDilationMat);
+    dilatedMat = morphologyClosingOpening(noneDilationMat, 3);
     // change cv::Mat to QImgae to display
     QImage q_dilatedMat(dilatedMat.data, dilatedMat.cols, dilatedMat.rows, dilatedMat.step, QImage::Format_Grayscale8);
     QImage q_noneDilationMat(noneDilationMat.data, noneDilationMat.cols, noneDilationMat.rows, noneDilationMat.step, QImage::Format_Grayscale8);
@@ -201,11 +209,11 @@ cv::Mat Dialog::kcircle(int kCircleRadius)
     return kernel;
 }
 
-cv::Mat Dialog::morphologyClosingOpening(cv::Mat src_Mat)
+cv::Mat Dialog::morphologyClosingOpening(cv::Mat src_Mat, int kCircleRadius)
 {
     cv::Mat dst_Mat(src_Mat.rows, src_Mat.cols, src_Mat.type());
     // create kernel for dilation
-    cv::Mat kernel = kcircle(3);
+    cv::Mat kernel = kcircle(kCircleRadius);
 
     // closing operate
     cv::morphologyEx(src_Mat, dst_Mat, cv::MORPH_CLOSE, kernel);
@@ -242,4 +250,16 @@ double Dialog::calculateMean(cv::Mat src_Mat)
 bool Dialog::checkImgSize(QImage src_Img)
 {
     return (src_Img.width() > 700);
+}
+
+void Dialog::on_pushButton_2_clicked()
+{
+    // mean threshold
+
+}
+
+void Dialog::on_pushButton_3_clicked()
+{
+    // mean std threshold
+
 }
