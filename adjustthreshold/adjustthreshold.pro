@@ -19,6 +19,9 @@ HEADERS += \
 # Default rules for deployment.
 unix {
     target.path = /usr/lib
+
+    INCLUDEPATH += /usr/local/include/opencv4
+    LIBS += -L/usr/local/lib -lopencv_core -lopencv_imgproc -lopencv_imgcodecs
 }
 
 !unix {

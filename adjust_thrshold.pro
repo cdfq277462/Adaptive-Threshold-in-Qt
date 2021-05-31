@@ -20,6 +20,8 @@ SOURCES += \
     dialog.cpp
 
 HEADERS += \
+    adjustthreshold.h \
+    adjustthreshold_global.h \
     dialog.h
 
 FORMS += \
@@ -27,6 +29,8 @@ FORMS += \
 
 INCLUDEPATH += /usr/local/include/opencv4
 LIBS += -L/usr/local/lib -lopencv_core -lopencv_imgproc -lopencv_imgcodecs
+
+LIBS += -L/home/draw/Desktop/Qt/build-adjust_thrshold-unknown-Debug/ -ladjustthreshold
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

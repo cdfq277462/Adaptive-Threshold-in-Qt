@@ -1,8 +1,10 @@
 #include "dialog.h"
 #include "ui_dialog.h"
 #include "opencv2/opencv.hpp"
-#include "adjustthreshold.h"
+#include "opencv2/ximgproc.hpp"
 
+
+#include "adjustthreshold.h"
 #include <QFileDialog>
 #include <QDebug>
 
@@ -12,7 +14,7 @@ Dialog::Dialog(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Dialog)
 {
-    ui->setupUi(this);
+    ui->setupUi(this);     
 }
 
 Dialog::~Dialog()
@@ -222,30 +224,6 @@ cv::Mat Dialog::morphologyClosingOpening(cv::Mat src_Mat, int kCircleRadius)
 
     return dst_Mat;
 }
-/*
-double Dialog::calculateMean(cv::Mat src_Mat)
-{
-    int nChannels = src_Mat.channels();
-    int nRows = src_Mat.rows;
-    int nCols = src_Mat.cols * nChannels;
-    int nStep = src_Mat.step;
-
-    double sum;
-    int count = 0;
-    uchar* srcData= src_Mat.data;
-    for( int j = 0; j < nRows; j++ ){
-        for( int i = 0; i < nCols; i++ ) {
-            if(*src_Mat.ptr(j, i) != 0)
-            {
-                sum += *src_Mat.ptr(j, i);
-                count++;
-            }
-        }
-        srcData += nStep;
-    }
-    return sum / count;
-}
-*/
 
 bool Dialog::checkImgSize(QImage src_Img)
 {
@@ -255,11 +233,91 @@ bool Dialog::checkImgSize(QImage src_Img)
 void Dialog::on_pushButton_2_clicked()
 {
     // mean threshold
+    QString imgName = QFileDialog::getOpenFileName(this, "Open a file", QDir::currentPath().append("/images"));
 
+    Adjustthreshold mThreshold;
+
+    mThreshold.readImg(imgName.toStdString());
+    origImg = mThreshold.getOrigMat();
+    grayImg = mThreshold.getGrayMat();
+
+    qDebug() << mThreshold.getAdjustThreshold(THRESHOLD_MEAN, 0.255)/255;
+    double thresholdMean = mThreshold.getAdjustThreshold(THRESHOLD_MEAN, 0.255);
+
+    cv::Mat outputImg1(grayImg.rows, grayImg.cols, grayImg.type());
+    cv::Mat outputImg2(grayImg.rows, grayImg.cols, grayImg.type());
+
+    cv::threshold(grayImg, outputImg1, thresholdMean, 255, cv::THRESH_BINARY);
+    outputImg2 = mThreshold.morphologyClosingOpening(outputImg1, 3);
+
+    imageDisplay(origImg, grayImg, outputImg1, outputImg2);
+
+    //mlib.test();
 }
 
 void Dialog::on_pushButton_3_clicked()
 {
     // mean std threshold
+    Adjustthreshold mThreshold;
+    QString imgName = QFileDialog::getOpenFileName(this, "Open a file", QDir::currentPath().append("/images"));
+    if(!imgName.isEmpty())
+    {
+        mThreshold.readImg(imgName.toStdString());
+        origImg = mThreshold.getOrigMat();
+        grayImg = mThreshold.getGrayMat();
+        cv::Mat outputImg1(grayImg.rows, grayImg.cols, grayImg.type());
+        cv::Mat outputImg2(grayImg.rows, grayImg.cols, grayImg.type());
+
+        //cv::ximgproc::niBlackThreshold(grayImg, outputImg1)
+        cv::adaptiveThreshold(grayImg, outputImg1, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, -10);
+        cv::adaptiveThreshold(grayImg, outputImg2, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, -20);
+
+        //cv::ximgproc::niBlackThreshold(grayImg, outputImg2, 255, cv::THRESH_BINARY, 101, 0.6, cv::ximgproc::BINARIZATION_NIBLACK);
+        //outputImg2 = mThreshold.morphologyClosingOpening(outputImg1, 3);
+
+        imageDisplay(outputImg1, outputImg2);
+    }
+}
+
+void Dialog::imageDisplay(cv::Mat imgMat1, cv::Mat imgMat2, cv::Mat imgMat3, cv::Mat imgMat4)
+{
+    QImage q_imgMat1(imgMat1.data, imgMat1.cols, imgMat1.rows, imgMat1.step, QImage::Format_Grayscale8);
+    QImage q_imgMat2(imgMat2.data, imgMat2.cols, imgMat2.rows, imgMat2.step, QImage::Format_Grayscale8);
+    QImage q_imgMat3(imgMat3.data, imgMat3.cols, imgMat3.rows, imgMat3.step, QImage::Format_Grayscale8);
+    QImage q_imgMat4(imgMat4.data, imgMat4.cols, imgMat4.rows, imgMat4.step, QImage::Format_Grayscale8);
+
+    // check image size
+    if(checkImgSize(q_imgMat1))
+        q_imgMat1 = q_imgMat1.scaled(700, 400, Qt::KeepAspectRatio);
+
+    if(checkImgSize(q_imgMat2))
+        q_imgMat2 = q_imgMat2.scaled(700, 400, Qt::KeepAspectRatio);
+
+    if(checkImgSize(q_imgMat3))
+        q_imgMat3 = q_imgMat3.scaled(700, 400, Qt::KeepAspectRatio);
+
+    if(checkImgSize(q_imgMat4))
+        q_imgMat4 = q_imgMat4.scaled(700, 400, Qt::KeepAspectRatio);
+
+    // display image
+    ui->label_orig->setPixmap(QPixmap::fromImage(q_imgMat1));
+    ui->label_gray->setPixmap(QPixmap::fromImage(q_imgMat2));
+    ui->label_mean->setPixmap(QPixmap::fromImage(q_imgMat3));
+    ui->label_meanstd->setPixmap(QPixmap::fromImage(q_imgMat4));
+
+}
+
+void Dialog::imageDisplay(cv::Mat imgMat1, cv::Mat imgMat2)
+{
+    QImage q_imgMat1(imgMat1.data, imgMat1.cols, imgMat1.rows, imgMat1.step, QImage::Format_Grayscale8);
+    QImage q_imgMat2(imgMat2.data, imgMat2.cols, imgMat2.rows, imgMat2.step, QImage::Format_Grayscale8);
+    if(checkImgSize(q_imgMat1))
+        q_imgMat1 = q_imgMat1.scaled(700, 400, Qt::KeepAspectRatio);
+
+    if(checkImgSize(q_imgMat2))
+        q_imgMat2 = q_imgMat2.scaled(700, 400, Qt::KeepAspectRatio);
+
+    ui->label_orig->setPixmap(QPixmap::fromImage(q_imgMat1));
+    ui->label_gray->setPixmap(QPixmap::fromImage(q_imgMat2));
 
 }

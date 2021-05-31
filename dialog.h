@@ -43,6 +43,10 @@ private slots:
 
     void on_pushButton_3_clicked();
 
+    void imageDisplay(cv::Mat, cv::Mat, cv::Mat, cv::Mat);
+
+    void imageDisplay(cv::Mat, cv::Mat);
+
 private:
     Ui::Dialog *ui;
     QGraphicsScene *imageScene;
