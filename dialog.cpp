@@ -24,168 +24,12 @@ Dialog::~Dialog()
 
 void Dialog::on_pushButton_open_clicked()
 {
-    int64 t0 = cv::getTickCount();
 
-    if(readImg())
-        ui->label_meanThreshold->setText("Threshold :" + QString::number(meanThreshold(grayImg) /255));
-
-    int64 t1 = cv::getTickCount();
-    double t = (t1-t0) * 1000 /cv::getTickFrequency();
-    qDebug() << "Detecting time on a single frame: " << t <<"ms";
 }
 
 void Dialog::on_pushButton_clicked()
 {
-    if(readImg())
-        ui->label_meanThreshold->setText("Threshold :" + QString::number(meanStdThreshold(grayImg) /255));
-}
 
-bool Dialog::readImg()
-{
-    QString imgName = QFileDialog::getOpenFileName(this, "Open a file", QDir::currentPath().append("/images"));
-
-    if(imgName.isEmpty())
-        return false;
-
-    qDebug() << imgName;
-    origImg = cv::imread(imgName.toStdString());
-    cv::cvtColor(origImg, grayImg, cv::COLOR_BGR2GRAY);
-
-    QImage q_origImg(origImg.data, origImg.cols, origImg.rows, origImg.step, QImage::Format_BGR888);
-    QImage q_grayImg(grayImg.data, grayImg.cols, grayImg.rows, grayImg.step, QImage::Format_Grayscale8);
-
-    if(checkImgSize(q_origImg))
-        q_origImg = q_origImg.scaled(700, 400, Qt::KeepAspectRatio);
-    if(checkImgSize(q_grayImg))
-        q_grayImg = q_grayImg.scaled(700, 400, Qt::KeepAspectRatio);
-
-    // display orig image
-    ui->label_orig->setPixmap(QPixmap::fromImage(q_origImg));
-    // display gray image
-    ui->label_gray->setPixmap(QPixmap::fromImage(q_grayImg));
-
-    return true;
-}
-
-double Dialog::meanThreshold(cv::Mat src_Mat)
-{
-    // calculate Mean
-    cv::Scalar tmp_mean;
-    tmp_mean = cv::mean(src_Mat);
-    qDebug() << tmp_mean.val[0] /255;
-
-    double threshold = tmp_mean.val[0];
-    double thresholdNext = 0;
-    bool done = (qAbs(threshold - thresholdNext) < 0.255);
-
-    // create two Mat use to calculate each group mean & std
-    cv::Mat dst_Mat1(src_Mat.rows, src_Mat.cols, src_Mat.type());
-    cv::Mat dst_Mat2(src_Mat.rows, src_Mat.cols, src_Mat.type());
-
-    while(!done)
-    {
-        cv::threshold(src_Mat, dst_Mat1, threshold, 255, cv::THRESH_TOZERO);
-        cv::threshold(src_Mat, dst_Mat2, threshold, 255, cv::THRESH_TOZERO_INV);
-
-        cv::Scalar tmp_mean1, tmp_stddev1, tmp_mean2, tmp_stddev2;
-
-        // calculate two group' mean & std except 0
-        cv::meanStdDev(dst_Mat1, tmp_mean1, tmp_stddev1, src_Mat > threshold);
-        cv::meanStdDev(dst_Mat2, tmp_mean2, tmp_stddev2, src_Mat < threshold);
-
-        // Tnext = (1/(s1+s2))*(s1*mean(fd(gd)) + s2*mean(fd(~gd)));
-        // Tnext = (0.5)*(mean(fd(gd)) + mean(fd(~gd)));
-        thresholdNext = (tmp_mean1.val[0] + tmp_mean2.val[0]) /2;
-
-        //thresholdNext = (1/ (tmp_stddev1.val[0] + tmp_stddev2.val[0]))  \
-                * (tmp_stddev1.val[0] * tmp_mean1.val[0] + tmp_stddev2.val[0] * tmp_mean2.val[0]);
-
-        done = (qAbs(threshold - thresholdNext) < ThresholdError);
-        threshold = thresholdNext;
-    }
-    qDebug() << threshold /255;
-
-
-    // display
-    cv::Mat noneDilationMat(src_Mat.rows, src_Mat.cols, src_Mat.type());
-    cv::Mat dilatedMat(noneDilationMat.rows, noneDilationMat.cols, noneDilationMat.type());
-    cv::threshold(src_Mat, noneDilationMat, threshold, 255, cv::THRESH_BINARY);
-
-    dilatedMat = morphologyClosingOpening(noneDilationMat, 3);
-
-    // change cv::Mat to QImgae to display
-    QImage q_dilatedMat(dilatedMat.data, dilatedMat.cols, dilatedMat.rows, dilatedMat.step, QImage::Format_Grayscale8);
-    QImage q_noneDilationMat(noneDilationMat.data, noneDilationMat.cols, noneDilationMat.rows, noneDilationMat.step, QImage::Format_Grayscale8);
-
-    // check image size
-    if(checkImgSize(q_dilatedMat))
-        q_dilatedMat = q_dilatedMat.scaled(700, 400, Qt::KeepAspectRatio);
-    if(checkImgSize(q_noneDilationMat))
-        q_noneDilationMat = q_noneDilationMat.scaled(700, 400, Qt::KeepAspectRatio);
-    // display image
-    ui->label_meanstd->setPixmap(QPixmap::fromImage(q_dilatedMat));
-    ui->label_mean->setPixmap(QPixmap::fromImage(q_noneDilationMat));
-
-    return threshold;
-}
-
-double Dialog::meanStdThreshold(cv::Mat src_Mat)
-{
-    // calculate Mean
-    cv::Scalar tmp_mean;
-    tmp_mean = cv::mean(src_Mat);
-    qDebug() << tmp_mean.val[0] /255;
-
-    double threshold = tmp_mean.val[0];
-    double thresholdNext = 0;
-    bool done = (qAbs(threshold - thresholdNext) < 0.255);
-
-    // create two Mat use to calculate each group mean & std
-    cv::Mat dst_Mat1(src_Mat.rows, src_Mat.cols, src_Mat.type());
-    cv::Mat dst_Mat2(src_Mat.rows, src_Mat.cols, src_Mat.type());
-
-    while(!done)
-    {
-        cv::threshold(src_Mat, dst_Mat1, threshold, 255, cv::THRESH_TOZERO);
-        cv::threshold(src_Mat, dst_Mat2, threshold, 255, cv::THRESH_TOZERO_INV);
-
-        cv::Scalar tmp_mean1, tmp_stddev1, tmp_mean2, tmp_stddev2;
-
-        // calculate two group' mean & std except 0
-        cv::meanStdDev(dst_Mat1, tmp_mean1, tmp_stddev1, dst_Mat1 > 0);
-        cv::meanStdDev(dst_Mat2, tmp_mean2, tmp_stddev2, dst_Mat2 > 0);
-
-        // Tnext = (1/(s1+s2))*(s1*mean(fd(gd)) + s2*mean(fd(~gd)));
-        // Tnext = (0.5)*(mean(fd(gd)) + mean(fd(~gd)));
-        thresholdNext = (1/ (tmp_stddev1.val[0] + tmp_stddev2.val[0]))  \
-                * (tmp_stddev1.val[0] * tmp_mean1.val[0] + tmp_stddev2.val[0] * tmp_mean2.val[0]);
-
-        done = (qAbs(threshold - thresholdNext) < ThresholdError);
-        threshold = thresholdNext;
-    }
-    qDebug() << threshold /255;
-
-    // dsplay
-    cv::Mat noneDilationMat(src_Mat.rows, src_Mat.cols, src_Mat.type());
-    cv::Mat dilatedMat(noneDilationMat.rows, noneDilationMat.cols, noneDilationMat.type());
-
-    cv::threshold(src_Mat, noneDilationMat, threshold, 255, cv::THRESH_BINARY);
-
-    dilatedMat = morphologyClosingOpening(noneDilationMat, 3);
-    // change cv::Mat to QImgae to display
-    QImage q_dilatedMat(dilatedMat.data, dilatedMat.cols, dilatedMat.rows, dilatedMat.step, QImage::Format_Grayscale8);
-    QImage q_noneDilationMat(noneDilationMat.data, noneDilationMat.cols, noneDilationMat.rows, noneDilationMat.step, QImage::Format_Grayscale8);
-
-    // check image size
-    if(checkImgSize(q_dilatedMat))
-        q_dilatedMat = q_dilatedMat.scaled(700, 400, Qt::KeepAspectRatio);
-    if(checkImgSize(q_noneDilationMat))
-        q_noneDilationMat = q_noneDilationMat.scaled(700, 400, Qt::KeepAspectRatio);
-    // display image
-    ui->label_meanstd->setPixmap(QPixmap::fromImage(q_dilatedMat));
-    ui->label_mean->setPixmap(QPixmap::fromImage(q_noneDilationMat));
-
-    return threshold;
 }
 
 cv::Mat Dialog::kcircle(int kCircleRadius)
@@ -267,15 +111,47 @@ void Dialog::on_pushButton_3_clicked()
         grayImg = mThreshold.getGrayMat();
         cv::Mat outputImg1(grayImg.rows, grayImg.cols, grayImg.type());
         cv::Mat outputImg2(grayImg.rows, grayImg.cols, grayImg.type());
+        cv::Mat tmp(grayImg.rows, grayImg.cols, grayImg.type());
 
         //cv::ximgproc::niBlackThreshold(grayImg, outputImg1)
-        cv::adaptiveThreshold(grayImg, outputImg1, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, -10);
-        cv::adaptiveThreshold(grayImg, outputImg2, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, -20);
+        cv::adaptiveThreshold(grayImg, outputImg1, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, 0);
+        //cv::adaptiveThreshold(grayImg, outputImg2, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, -0.6);
 
-        //cv::ximgproc::niBlackThreshold(grayImg, outputImg2, 255, cv::THRESH_BINARY, 101, 0.6, cv::ximgproc::BINARIZATION_NIBLACK);
+
+        //cv::ximgproc::niBlackThreshold(grayImg, outputImg2, 255, cv::THRESH_BINARY, 101, -0.6, cv::ximgproc::BINARIZATION_NIBLACK);
+        tmp = niBlackThreshold_custom(grayImg, outputImg1, 255, cv::THRESH_BINARY, 201, -0.6, cv::ximgproc::BINARIZATION_NIBLACK);
+        tmp = tmp *1.3;
+        //cv::ximgproc::thinning(grayImg, outputImg1);
         //outputImg2 = mThreshold.morphologyClosingOpening(outputImg1, 3);
 
-        imageDisplay(outputImg1, outputImg2);
+        //imageDisplay(tmp, outputImg1);
+
+        double thresholdGlobal, threshold;
+        double thresholdNext    = 0;
+        double thresholdError   = 0.255;
+        double thresholdGain    = 1.3;
+        threshold = cv::mean(tmp).val[0] * thresholdGain;
+        thresholdGlobal = threshold;
+        bool done = (abs(threshold - thresholdNext) < thresholdError);
+        cv::Scalar tmp_mean1, tmp_stddev1, tmp_mean2, tmp_stddev2;
+
+        while(!done)
+        {
+            tmp_mean1 = cv::mean(grayImg, grayImg > threshold) ;
+            tmp_mean2 = cv::mean(grayImg, grayImg < threshold) ;
+            thresholdNext = (tmp_mean1.val[0] + tmp_mean2.val[0]) /2;
+
+            done = (abs(threshold - thresholdNext) < thresholdError);
+            threshold = thresholdNext;
+        }
+        qDebug() << "threshold: " << threshold << "thresholdGlobal: " << thresholdGlobal;
+
+        cv::threshold(grayImg, outputImg1, thresholdGlobal, 255, cv::THRESH_BINARY);
+        //cv::threshold(grayImg, outputImg2, threshold, 255, cv::THRESH_BINARY);
+        //cv::compare(grayImg, outputImg2, outputImg2, cv::CMP_GE);
+        outputImg2 = grayImg >= tmp;
+        cv::bitwise_and(outputImg1, outputImg2, outputImg1);
+        imageDisplay(origImg, outputImg1, outputImg2, tmp);
     }
 }
 
@@ -319,5 +195,83 @@ void Dialog::imageDisplay(cv::Mat imgMat1, cv::Mat imgMat2)
 
     ui->label_orig->setPixmap(QPixmap::fromImage(q_imgMat1));
     ui->label_gray->setPixmap(QPixmap::fromImage(q_imgMat2));
+
+}
+
+cv::Mat Dialog::niBlackThreshold_custom(cv::Mat _src, cv::Mat _dst, double maxValue,
+                                        int type, int blockSize, double k, int binarizationMethod, double r)
+{
+    // Input grayscale image
+    cv::Mat src = _src;
+    type &= cv::THRESH_MASK;
+
+    // Compute local threshold (T = mean + k * stddev)
+    // using mean and standard deviation in the neighborhood of each pixel
+    // (intermediate calculations are done with floating-point precision)
+    cv::Mat thresh;
+    {
+        // note that: Var[X] = E[X^2] - E[X]^2
+        cv::Mat mean, sqmean, variance, stddev, sqrtVarianceMeanSum;
+        double srcMin, stddevMax;
+        cv::boxFilter(src, mean, CV_32F, cv::Size(blockSize, blockSize),
+                cv::Point(-1,-1), true, cv::BORDER_REPLICATE);
+        cv::sqrBoxFilter(src, sqmean, CV_32F, cv::Size(blockSize, blockSize),
+                cv::Point(-1,-1), true, cv::BORDER_REPLICATE);
+        variance = sqmean - mean.mul(mean);
+        sqrt(variance, stddev);
+        switch (binarizationMethod)
+        {
+        case cv::ximgproc::BINARIZATION_NIBLACK:
+            thresh = mean + stddev * static_cast<float>(k);
+            break;
+        case cv::ximgproc::BINARIZATION_SAUVOLA:
+            thresh = mean.mul(1. + static_cast<float>(k) * (stddev / r - 1.));
+            break;
+        case cv::ximgproc::BINARIZATION_WOLF:
+            minMaxIdx(src, &srcMin);
+            minMaxIdx(stddev, NULL, &stddevMax);
+            thresh = mean - static_cast<float>(k) * (mean - srcMin - stddev.mul(mean - srcMin) / stddevMax);
+            break;
+        case cv::ximgproc::BINARIZATION_NICK:
+            sqrt(variance + sqmean, sqrtVarianceMeanSum);
+            thresh = mean + static_cast<float>(k) * sqrtVarianceMeanSum;
+            break;
+        default:
+            //cv::CV_Error(cv::CV_StsBadArg, "Unknown binarization method");
+            break;
+        }
+        thresh.convertTo(thresh, src.depth());
+    }
+    return thresh;
+    // Prepare output image
+    _dst.create(src.size(), src.type());
+    cv::Mat dst = _dst;
+    //cv::CV_Assert(src.data != dst.data);  // no inplace processing
+
+    // Apply thresholding: ( pixel > threshold ) ? foreground : background
+    cv::Mat mask;
+    switch (type)
+    {
+    case cv::THRESH_BINARY:      // dst = (src > thresh) ? maxval : 0
+    case cv::THRESH_BINARY_INV:  // dst = (src > thresh) ? 0 : maxval
+        compare(src, thresh, mask, (type == cv::THRESH_BINARY ? cv::CMP_GT : cv::CMP_LE));
+        dst.setTo(0);
+        dst.setTo(maxValue, mask);
+        break;
+    case cv::THRESH_TRUNC:       // dst = (src > thresh) ? thresh : src
+        compare(src, thresh, mask, cv::CMP_GT);
+        src.copyTo(dst);
+        thresh.copyTo(dst, mask);
+        break;
+    case cv::THRESH_TOZERO:      // dst = (src > thresh) ? src : 0
+    case cv::THRESH_TOZERO_INV:  // dst = (src > thresh) ? 0 : src
+        cv::compare(src, thresh, mask, (type == cv::THRESH_TOZERO ? cv::CMP_GT : cv::CMP_LE));
+        dst.setTo(0);
+        src.copyTo(dst, mask);
+        break;
+    default:
+        //cv::CV_Error( cv::CV_StsBadArg, "Unknown threshold type" );
+        break;
+    }
 
 }

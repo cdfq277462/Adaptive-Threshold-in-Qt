@@ -22,12 +22,6 @@ public:
 private slots:
     void on_pushButton_open_clicked();
 
-    bool readImg();
-
-    double meanThreshold(cv::Mat);
-
-    double meanStdThreshold(cv::Mat);
-
     // useless
     // double calculateMean(cv::Mat);
 
@@ -46,6 +40,9 @@ private slots:
     void imageDisplay(cv::Mat, cv::Mat, cv::Mat, cv::Mat);
 
     void imageDisplay(cv::Mat, cv::Mat);
+
+    cv::Mat niBlackThreshold_custom( cv::Mat _src, cv::Mat _dst, double maxValue,
+                                  int type, int blockSize, double k, int binarizationMethod, double r = 128);
 
 private:
     Ui::Dialog *ui;
