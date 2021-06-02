@@ -23,7 +23,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>Open_Mean</string>
+    <string>Label</string>
    </property>
   </widget>
   <widget class="QPushButton" name="pushButton">
@@ -103,40 +103,6 @@
         </item>
        </layout>
       </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_5">
-        <item>
-         <widget class="QLabel" name="label_meanThreshold_2">
-          <property name="font">
-           <font>
-            <pointsize>16</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Origin Image</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_meanStdThrshold_2">
-          <property name="font">
-           <font>
-            <pointsize>16</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Gray Level Image</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
      </layout>
     </item>
     <item>
@@ -154,40 +120,6 @@
          <widget class="QLabel" name="label_meanstd">
           <property name="text">
            <string>TextLabel</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_6">
-        <item>
-         <widget class="QLabel" name="label_meanThreshold_3">
-          <property name="font">
-           <font>
-            <pointsize>16</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Threshold Image</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_meanStdThrshold_3">
-          <property name="font">
-           <font>
-            <pointsize>16</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Morphology Image</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>

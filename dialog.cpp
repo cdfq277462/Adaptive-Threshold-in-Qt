@@ -2,8 +2,8 @@
 #include "ui_dialog.h"
 #include "opencv2/opencv.hpp"
 #include "opencv2/ximgproc.hpp"
-
-
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
 #include "adjustthreshold.h"
 #include <QFileDialog>
 #include <QDebug>
@@ -24,7 +24,61 @@ Dialog::~Dialog()
 
 void Dialog::on_pushButton_open_clicked()
 {
+    QString imgName = QFileDialog::getOpenFileName(this, "Open a file", QDir::currentPath().append("/images"));
 
+    Adjustthreshold mThreshold;
+
+    mThreshold.readImg(imgName.toStdString());
+    origImg = mThreshold.getOrigMat();
+    grayImg = mThreshold.getGrayMat();
+    cv::Mat labels;
+    cv::Mat stats;
+    cv::Mat centroids;
+
+
+    int nLabels = cv::connectedComponentsWithStats(grayImg, labels, stats, centroids, 8, CV_32S);
+
+    qDebug() << labels.rows << labels.cols;
+    qDebug() << stats.rows << stats.cols;
+    qDebug() << centroids.rows << centroids.cols;
+
+    std::vector<cv::Vec3b> colors(nLabels);
+    colors[0] = cv::Vec3b(0, 0, 0);
+
+
+    for(int label = 1; label < nLabels; ++label){
+        colors[label] = cv::Vec3b( (std::rand()&255), (std::rand()&255), (std::rand()&255) );
+        std::cout << "Component "<< label << std::endl;
+        std::cout << "CC_STAT_LEFT   = " << stats.at<int>(label,cv::CC_STAT_LEFT) << std::endl;
+        std::cout << "CC_STAT_TOP    = " << stats.at<int>(label,cv::CC_STAT_TOP) << std::endl;
+        std::cout << "CC_STAT_WIDTH  = " << stats.at<int>(label,cv::CC_STAT_WIDTH) << std::endl;
+        std::cout << "CC_STAT_HEIGHT = " << stats.at<int>(label,cv::CC_STAT_HEIGHT) << std::endl;
+        std::cout << "CC_STAT_AREA   = " << stats.at<int>(label,cv::CC_STAT_AREA) << std::endl;
+        std::cout << "CENTER   = (" << centroids.at<double>(label, 0) <<","<< centroids.at<double>(label, 1) << ")"<< std::endl << std::endl;
+    }
+
+    cv::Mat dst(grayImg.size(), CV_8U);
+    for(int r = 0; r < dst.rows; ++r){
+        for(int c = 0; c < dst.cols; ++c){
+            int label = labels.at<int>(r, c);
+            //::Vec3b &pixel = dst.at<cv::Vec3b>(r, c);
+            *dst.ptr(r, c) = label;
+            //pixel = colors[label];
+        }
+    }
+    //cv::cvtColor(dst, dst, cv::COLOR_BGR2GRAY);
+    qDebug() << labels.at<int>(245, 425);
+    qDebug() << labels.at<int>(425, 245);
+    cv::Mat tmp2 = (dst == 2);
+    cv::Mat tmp3 = (dst == 3);
+    cv::Mat tmp4 = (dst == 4);
+
+
+    cv::Moments imgMoment;
+    imgMoment = cv::moments(dst);
+    qDebug() << imgMoment.m00 << imgMoment.m01 << imgMoment.m10;
+    qDebug() << imgMoment.m10 / imgMoment.m00;
+    imageDisplay(grayImg, tmp2, tmp3, tmp4);
 }
 
 void Dialog::on_pushButton_clicked()
@@ -71,7 +125,7 @@ cv::Mat Dialog::morphologyClosingOpening(cv::Mat src_Mat, int kCircleRadius)
 
 bool Dialog::checkImgSize(QImage src_Img)
 {
-    return (src_Img.width() > 700);
+    return (src_Img.width() > 300);
 }
 
 void Dialog::on_pushButton_2_clicked()
@@ -114,15 +168,10 @@ void Dialog::on_pushButton_3_clicked()
         cv::Mat tmp(grayImg.rows, grayImg.cols, grayImg.type());
 
         //cv::ximgproc::niBlackThreshold(grayImg, outputImg1)
-        cv::adaptiveThreshold(grayImg, outputImg1, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, 0);
-        //cv::adaptiveThreshold(grayImg, outputImg2, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 101, -0.6);
-
 
         //cv::ximgproc::niBlackThreshold(grayImg, outputImg2, 255, cv::THRESH_BINARY, 101, -0.6, cv::ximgproc::BINARIZATION_NIBLACK);
         tmp = niBlackThreshold_custom(grayImg, outputImg1, 255, cv::THRESH_BINARY, 201, -0.6, cv::ximgproc::BINARIZATION_NIBLACK);
         tmp = tmp *1.3;
-        //cv::ximgproc::thinning(grayImg, outputImg1);
-        //outputImg2 = mThreshold.morphologyClosingOpening(outputImg1, 3);
 
         //imageDisplay(tmp, outputImg1);
 
@@ -130,7 +179,7 @@ void Dialog::on_pushButton_3_clicked()
         double thresholdNext    = 0;
         double thresholdError   = 0.255;
         double thresholdGain    = 1.3;
-        threshold = cv::mean(tmp).val[0] * thresholdGain;
+        threshold = cv::mean(tmp).val[0];
         thresholdGlobal = threshold;
         bool done = (abs(threshold - thresholdNext) < thresholdError);
         cv::Scalar tmp_mean1, tmp_stddev1, tmp_mean2, tmp_stddev2;
@@ -146,12 +195,13 @@ void Dialog::on_pushButton_3_clicked()
         }
         qDebug() << "threshold: " << threshold << "thresholdGlobal: " << thresholdGlobal;
 
-        cv::threshold(grayImg, outputImg1, thresholdGlobal, 255, cv::THRESH_BINARY);
-        //cv::threshold(grayImg, outputImg2, threshold, 255, cv::THRESH_BINARY);
-        //cv::compare(grayImg, outputImg2, outputImg2, cv::CMP_GE);
+        cv::threshold(grayImg, outputImg1, threshold, 255, cv::THRESH_BINARY);
+
         outputImg2 = grayImg >= tmp;
-        cv::bitwise_and(outputImg1, outputImg2, outputImg1);
-        imageDisplay(origImg, outputImg1, outputImg2, tmp);
+        cv::bitwise_and(outputImg1, outputImg2, outputImg2);
+
+        outputImg2 = mThreshold.morphologyClosingOpening(outputImg2, 3);
+        imageDisplay(origImg, tmp, outputImg1, outputImg2);
     }
 }
 

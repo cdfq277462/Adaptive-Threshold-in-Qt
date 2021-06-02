@@ -1,6 +1,7 @@
-QT       += core gui
+QT -= gui
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+TEMPLATE = lib
+DEFINES += ADATIVETHRESHOLD_LIBRARY
 
 CONFIG += c++11
 
@@ -16,23 +17,21 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    main.cpp \
-    dialog.cpp
+    adativethreshold.cpp
 
 HEADERS += \
-    adjustthreshold.h \
-    adjustthreshold_global.h \
-    dialog.h
-
-FORMS += \
-    dialog.ui
-
-INCLUDEPATH += /usr/local/include/opencv4
-LIBS += -L/usr/local/lib -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_ximgproc -lopencv_highgui
-
-LIBS += -L/home/draw/Desktop/Qt/build-adjust_thrshold-unknown-Debug/ -ladjustthreshold
+    adativethreshold_global.h \
+    adativethreshold.h
 
 # Default rules for deployment.
-qnx: target.path = /tmp/$${TARGET}/bin
-else: unix:!android: target.path = /opt/$${TARGET}/bin
+unix {
+    target.path = /usr/lib
+
+    INCLUDEPATH += /usr/local/include/opencv4
+    LIBS += -L/usr/local/lib -lopencv_core -lopencv_imgproc -lopencv_imgcodecs
+}
+
+!unix {
+    INCLUDEPATH += E:\opencv\build\include
+}
 !isEmpty(target.path): INSTALLS += target
