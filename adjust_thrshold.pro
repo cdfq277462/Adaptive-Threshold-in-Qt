@@ -27,7 +27,8 @@ HEADERS += \
 FORMS += \
     dialog.ui
 
-INCLUDEPATH += /usr/local/include/opencv4
+INCLUDEPATH += /usr/local/include/opencv4 \
+            += /usr/local/include/
 LIBS += -L/usr/local/lib -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_ximgproc -lopencv_highgui
 
 LIBS += -L/home/draw/Desktop/Qt/build-adjust_thrshold-unknown-Debug/ -ladjustthreshold

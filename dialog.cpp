@@ -3,8 +3,11 @@
 #include "opencv2/opencv.hpp"
 #include "opencv2/ximgproc.hpp"
 #include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
+
 #include "adjustthreshold.h"
+#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
+
 #include <QFileDialog>
 #include <QDebug>
 
@@ -58,32 +61,121 @@ void Dialog::on_pushButton_open_clicked()
     }
 
     cv::Mat dst(grayImg.size(), CV_8U);
+
+    cv::Mat dst2;
+    labels.convertTo(dst2, CV_8U);
+
+    /*
+    // older usage
     for(int r = 0; r < dst.rows; ++r){
-        for(int c = 0; c < dst.cols; ++c){
+        for(int c = 0; c < dst.cols; ++c){covarianceMatrix
             int label = labels.at<int>(r, c);
             //::Vec3b &pixel = dst.at<cv::Vec3b>(r, c);
             *dst.ptr(r, c) = label;
             //pixel = colors[label];
         }
     }
-    //cv::cvtColor(dst, dst, cv::COLOR_BGR2GRAY);
-    qDebug() << labels.at<int>(245, 425);
-    qDebug() << labels.at<int>(425, 245);
-    cv::Mat tmp2 = (dst == 2);
-    cv::Mat tmp3 = (dst == 3);
-    cv::Mat tmp4 = (dst == 4);
+    */
 
+    cv::Mat tmp2 = (dst2 == 2);
+
+    imageDisplay(origImg, tmp2);
+
+    cv::Mat mean, eigenvectors, eigenvalues;
+
+
+
+    int64 t0 = cv::getTickCount();
+/***************************************/
 
     cv::Moments imgMoment;
-    imgMoment = cv::moments(dst);
-    qDebug() << imgMoment.m00 << imgMoment.m01 << imgMoment.m10;
-    qDebug() << imgMoment.m10 / imgMoment.m00;
-    imageDisplay(grayImg, tmp2, tmp3, tmp4);
+    imgMoment = cv::moments(tmp2);
+
+    Eigen::Matrix<double, 2, 2> covarianceMatrix;
+    covarianceMatrix << imgMoment.m20, imgMoment.m11,
+                        imgMoment.m11, imgMoment.m02 ;
+
+/***************************************/
+    int64 t1 = cv::getTickCount();
+    double t = (t1-t0) * 1000 /cv::getTickFrequency();
+    qDebug() << "Calculate moment times: " << t <<"ms";
+
+    double num = covarianceMatrix.eigenvalues().real()[0];
+    std::cout << covarianceMatrix.eigenvalues().real()[0] << std::endl;
+    qDebug() << num;
+
 }
 
 void Dialog::on_pushButton_clicked()
 {
+    /*
+    cv::Mat data_pts = cv::Mat(10, 2, CV_64F);
+    for (int i = 0; i < 3; i++)
+    {
+        data_pts.at<double>(i, 0) = i;
+        data_pts.at<double>(i, 1) = i;
+        std::cout << "(" << data_pts.at<double>(i, 0) << ", " << data_pts.at<double>(i, 1) << ")" << std::endl;
+    }
 
+
+    cv::PCA pca_analysis(data_pts, cv::Mat(), cv::PCA::DATA_AS_ROW);
+    Eigen::Matrix3d eigen_vecs;
+    Eigen::Matrix4d T;
+    std::vector<double> eigen_val(3);
+
+    std::cout << "****************************************************" << std::endl;
+    std::cout << "EigenVectors: " << std::endl;
+    for (int i = 0; i < 2; i++)
+    {
+        eigen_vecs(i, 0) = pca_analysis.eigenvectors.at<double>(i, 0);
+        eigen_vecs(i, 1) = pca_analysis.eigenvectors.at<double>(i, 1);
+        std::cout << eigen_vecs(i, 0) << "\t\t" << eigen_vecs(i, 1) << std::endl;
+    }
+
+    std::cout << std::endl << "EigenValue: " << std::endl;
+    for (int i = 0; i < 2; i++)
+    {
+        eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
+        std::cout << eigen_val[i] << std::endl;
+    }
+
+    std::cout << std::endl << "MeanValue: " << std::endl;
+    for (int i = 0; i < 2; i++)
+    {
+        std::cout << pca_analysis.mean.at<double>(i) << std::endl;
+    }
+
+    std::cout << "****************************************************" << std::endl;
+    */
+
+    Eigen::Matrix<double, 10, 10> B;
+    Eigen::MatrixXd::Identity(10,10);
+    B.setIdentity(10,10);
+
+    std::cout << B << std::endl;
+
+    std::cout << B.eigenvalues() << std::endl;
+    Eigen::Matrix<double, 2, 2> A;
+    A(1, 1) = 1;
+    qDebug() << A(1, 1);
+/*
+    cv::Mat A(2, 2, CV_8U);
+    *A.ptr(0,0) =1;
+    *A.ptr(0,1) =2;
+    *A.ptr(1,0) =3;
+    *A.ptr(1,1) =2;
+    std::cout << A << std::endl;
+    cv::Mat mean, eigenvectors, eigenvalues;
+
+    cv::PCACompute(A, mean, eigenvectors, eigenvalues);
+
+    std::cout << mean << std::endl;
+    std::cout << eigenvalues << std::endl;
+    std::cout << eigenvectors << std::endl;
+*/
+
+
+    //cv::Mat tmp(cv::Size(2, 2), CV_8U);
 }
 
 cv::Mat Dialog::kcircle(int kCircleRadius)
