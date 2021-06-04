@@ -41,16 +41,21 @@ void Dialog::on_pushButton_open_clicked()
 
     int nLabels = cv::connectedComponentsWithStats(grayImg, labels, stats, centroids, 8, CV_32S);
 
-    qDebug() << labels.rows << labels.cols;
-    qDebug() << stats.rows << stats.cols;
-    qDebug() << centroids.rows << centroids.cols;
+    cv::Mat dst2;
+    labels.convertTo(dst2, CV_8U);
+/*
+    for(int j = 0; j < dst2.cols; j++)
+        for(int i = 0; i < dst2.rows; i++)
+        {
+            int pixelLabel = *dst2.ptr(j, i);
 
-    std::vector<cv::Vec3b> colors(nLabels);
-    colors[0] = cv::Vec3b(0, 0, 0);
-
+            if(stats.at<int>(pixelLabel, cv::CC_STAT_AREA) < 8000)
+                *dst2.ptr(j, i) = 0;
+        }
+*/
 
     for(int label = 1; label < nLabels; ++label){
-        colors[label] = cv::Vec3b( (std::rand()&255), (std::rand()&255), (std::rand()&255) );
+        //colors[label] = cv::Vec3b( (std::rand()&255), (std::rand()&255), (std::rand()&255) );
         std::cout << "Component "<< label << std::endl;
         std::cout << "CC_STAT_LEFT   = " << stats.at<int>(label,cv::CC_STAT_LEFT) << std::endl;
         std::cout << "CC_STAT_TOP    = " << stats.at<int>(label,cv::CC_STAT_TOP) << std::endl;
@@ -62,8 +67,6 @@ void Dialog::on_pushButton_open_clicked()
 
     cv::Mat dst(grayImg.size(), CV_8U);
 
-    cv::Mat dst2;
-    labels.convertTo(dst2, CV_8U);
 
     /*
     // older usage
@@ -77,9 +80,13 @@ void Dialog::on_pushButton_open_clicked()
     }
     */
 
-    cv::Mat tmp2 = (dst2 == 2);
+    int whichLabel = 4;
+    cv::Mat tmp2 = (dst2 == whichLabel);
+    cv::Mat outputImg1;
+    cv::cvtColor(tmp2, outputImg1, cv::COLOR_GRAY2BGR);
 
-    imageDisplay(origImg, tmp2);
+    cv::Mat outputImg2;
+    outputImg2 = dst2*50;
 
     cv::Mat mean, eigenvectors, eigenvalues;
 
@@ -92,61 +99,59 @@ void Dialog::on_pushButton_open_clicked()
     imgMoment = cv::moments(tmp2);
 
     Eigen::Matrix<double, 2, 2> covarianceMatrix;
-    covarianceMatrix << imgMoment.m20, imgMoment.m11,
-                        imgMoment.m11, imgMoment.m02 ;
+    covarianceMatrix << imgMoment.mu20, imgMoment.mu11,
+                        imgMoment.mu11, imgMoment.mu02 ;
 
 /***************************************/
     int64 t1 = cv::getTickCount();
     double t = (t1-t0) * 1000 /cv::getTickFrequency();
     qDebug() << "Calculate moment times: " << t <<"ms";
 
-    double num = covarianceMatrix.eigenvalues().real()[0];
-    std::cout << covarianceMatrix.eigenvalues().real()[0] << std::endl;
-    qDebug() << num;
+    double minEigen = covarianceMatrix.eigenvalues().real()[1];
+    double maxEigen = covarianceMatrix.eigenvalues().real()[0];
+    qDebug() << minEigen << maxEigen;
+
+    double major = 2 * sqrt(maxEigen/ imgMoment.m00);
+    double minor = 2 * sqrt(minEigen/ imgMoment.m00);
+
+    double theta = 0.5 * atan2(2*imgMoment.mu11, imgMoment.mu20 - imgMoment.mu02);
+
+    cv::Point centerPoint(centroids.at<double>(whichLabel, 0), centroids.at<double>(whichLabel, 1));
+    cv::Size axisSize(major, minor);
+    qDebug() << major << minor << qRadiansToDegrees(theta);
+
+    cv::ellipse(outputImg1, centerPoint, axisSize, qRadiansToDegrees(theta), 0, 360, cv::Scalar(0, 0, 255), 2);
+
+
+    std::vector<cv::Point> featurePoint;
+    cv::Point featurePoint1 = cv::Point(major*cos(theta), major*sin(theta)) + centerPoint;
+    cv::Point featurePoint2 = cv::Point(minor*sin(M_PI - theta), minor*cos(M_PI - theta)) + centerPoint;
+    cv::Point featurePoint3 = cv::Point(major*cos(theta + M_PI), major*sin(theta + M_PI)) + centerPoint;
+    cv::Point featurePoint4 = cv::Point(minor*sin(-theta), minor*cos(-theta)) + centerPoint;
+    featurePoint.push_back(centerPoint);
+    featurePoint.push_back(featurePoint1);
+    featurePoint.push_back(featurePoint2);
+    featurePoint.push_back(featurePoint3);
+    featurePoint.push_back(featurePoint4);
+    std::cout << featurePoint[2] << std::endl;
+
+    //qDebug() << featurePoint.pop_back();
+
+    //std::cout << featurePoint1 << featurePoint2 << featurePoint3 << featurePoint4<< std::endl;
+
+    cv::circle(outputImg1, centerPoint, 1, cv::Scalar(0, 0, 255), -1);
+    cv::circle(outputImg1, featurePoint1, 5, cv::Scalar(255, 0, 0), -1);
+    cv::circle(outputImg1, featurePoint2, 5, cv::Scalar(255, 0, 0), -1);
+    cv::circle(outputImg1, featurePoint3, 5, cv::Scalar(255, 0, 0), -1);
+    cv::circle(outputImg1, featurePoint4, 5, cv::Scalar(255, 0, 0), -1);
+
+    imageDisplay(origImg, tmp2, outputImg1, outputImg2);
 
 }
 
 void Dialog::on_pushButton_clicked()
 {
-    /*
-    cv::Mat data_pts = cv::Mat(10, 2, CV_64F);
-    for (int i = 0; i < 3; i++)
-    {
-        data_pts.at<double>(i, 0) = i;
-        data_pts.at<double>(i, 1) = i;
-        std::cout << "(" << data_pts.at<double>(i, 0) << ", " << data_pts.at<double>(i, 1) << ")" << std::endl;
-    }
 
-
-    cv::PCA pca_analysis(data_pts, cv::Mat(), cv::PCA::DATA_AS_ROW);
-    Eigen::Matrix3d eigen_vecs;
-    Eigen::Matrix4d T;
-    std::vector<double> eigen_val(3);
-
-    std::cout << "****************************************************" << std::endl;
-    std::cout << "EigenVectors: " << std::endl;
-    for (int i = 0; i < 2; i++)
-    {
-        eigen_vecs(i, 0) = pca_analysis.eigenvectors.at<double>(i, 0);
-        eigen_vecs(i, 1) = pca_analysis.eigenvectors.at<double>(i, 1);
-        std::cout << eigen_vecs(i, 0) << "\t\t" << eigen_vecs(i, 1) << std::endl;
-    }
-
-    std::cout << std::endl << "EigenValue: " << std::endl;
-    for (int i = 0; i < 2; i++)
-    {
-        eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
-        std::cout << eigen_val[i] << std::endl;
-    }
-
-    std::cout << std::endl << "MeanValue: " << std::endl;
-    for (int i = 0; i < 2; i++)
-    {
-        std::cout << pca_analysis.mean.at<double>(i) << std::endl;
-    }
-
-    std::cout << "****************************************************" << std::endl;
-    */
 
     Eigen::Matrix<double, 10, 10> B;
     Eigen::MatrixXd::Identity(10,10);
@@ -158,24 +163,7 @@ void Dialog::on_pushButton_clicked()
     Eigen::Matrix<double, 2, 2> A;
     A(1, 1) = 1;
     qDebug() << A(1, 1);
-/*
-    cv::Mat A(2, 2, CV_8U);
-    *A.ptr(0,0) =1;
-    *A.ptr(0,1) =2;
-    *A.ptr(1,0) =3;
-    *A.ptr(1,1) =2;
-    std::cout << A << std::endl;
-    cv::Mat mean, eigenvectors, eigenvalues;
 
-    cv::PCACompute(A, mean, eigenvectors, eigenvalues);
-
-    std::cout << mean << std::endl;
-    std::cout << eigenvalues << std::endl;
-    std::cout << eigenvectors << std::endl;
-*/
-
-
-    //cv::Mat tmp(cv::Size(2, 2), CV_8U);
 }
 
 cv::Mat Dialog::kcircle(int kCircleRadius)
@@ -301,7 +289,7 @@ void Dialog::imageDisplay(cv::Mat imgMat1, cv::Mat imgMat2, cv::Mat imgMat3, cv:
 {
     QImage q_imgMat1(imgMat1.data, imgMat1.cols, imgMat1.rows, imgMat1.step, QImage::Format_Grayscale8);
     QImage q_imgMat2(imgMat2.data, imgMat2.cols, imgMat2.rows, imgMat2.step, QImage::Format_Grayscale8);
-    QImage q_imgMat3(imgMat3.data, imgMat3.cols, imgMat3.rows, imgMat3.step, QImage::Format_Grayscale8);
+    QImage q_imgMat3(imgMat3.data, imgMat3.cols, imgMat3.rows, imgMat3.step, QImage::Format_BGR888);
     QImage q_imgMat4(imgMat4.data, imgMat4.cols, imgMat4.rows, imgMat4.step, QImage::Format_Grayscale8);
 
     // check image size
