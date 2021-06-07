@@ -41,19 +41,51 @@ void Dialog::on_pushButton_open_clicked()
 
     int nLabels = cv::connectedComponentsWithStats(grayImg, labels, stats, centroids, 8, CV_32S);
 
-    cv::Mat dst2;
-    labels.convertTo(dst2, CV_8U);
-/*
-    for(int j = 0; j < dst2.cols; j++)
-        for(int i = 0; i < dst2.rows; i++)
-        {
-            int pixelLabel = *dst2.ptr(j, i);
+    cv::Mat dst;
 
-            if(stats.at<int>(pixelLabel, cv::CC_STAT_AREA) < 8000)
-                *dst2.ptr(j, i) = 0;
+    int dstCols = labels.cols;
+    int dstRows = labels.rows;
+    //std::cout << labels << std::endl;
+
+
+    std::vector<cv::Vec3b> colors(nLabels);
+    colors[0] = cv::Vec3b(0,0,0); // background pixels remain black.
+    for(int i = 1; i < nLabels; i++ ) {
+          colors[i] = cv::Vec3b(rand()%256, rand()%256, rand()%256);
+
+          if( stats.at<int>(i, cv::CC_STAT_AREA) < 8000 )
+                colors[i] = cv::Vec3b(0,0,0); // small regions are painted with black too.
+    }
+    cv::Mat img_color = cv::Mat::zeros(origImg.size(), CV_8UC3);
+    for( int y = 0; y < img_color.rows; y++ )
+        for( int x = 0; x < img_color.cols; x++ )
+        {
+            int label = labels.at<int>(y, x);
+            img_color.at<cv::Vec3b>(y, x) = colors[label];
         }
+
+    cv::cvtColor(img_color, dst, cv::COLOR_BGR2GRAY);
+    cv::threshold(dst, dst, 0, 255, cv::THRESH_BINARY);
+    cv::connectedComponentsWithStats(dst, labels, stats, centroids);
+
+    labels.convertTo(dst, CV_8U);
+/*
+    for(int j = 0; j < dstCols; j++)
+        for(int i = 0; i < dstRows; i++)
+        {
+            int pixelLabel = *labels.ptr(j, i);
+            if(stats.at<int>(pixelLabel, cv::CC_STAT_AREA) < 8000)
+            {
+                labels.at<uchar>(j, i) = '0';
+                //std::cout << *dst.ptr(j, i) << std::endl;
+                //qDebug() << *labels.ptr(j, i);
+            }
+        }
+
+    labels.convertTo(dst, CV_8U);
 */
 
+/*
     for(int label = 1; label < nLabels; ++label){
         //colors[label] = cv::Vec3b( (std::rand()&255), (std::rand()&255), (std::rand()&255) );
         std::cout << "Component "<< label << std::endl;
@@ -64,33 +96,15 @@ void Dialog::on_pushButton_open_clicked()
         std::cout << "CC_STAT_AREA   = " << stats.at<int>(label,cv::CC_STAT_AREA) << std::endl;
         std::cout << "CENTER   = (" << centroids.at<double>(label, 0) <<","<< centroids.at<double>(label, 1) << ")"<< std::endl << std::endl;
     }
+*/
 
-    cv::Mat dst(grayImg.size(), CV_8U);
-
-
-    /*
-    // older usage
-    for(int r = 0; r < dst.rows; ++r){
-        for(int c = 0; c < dst.cols; ++c){covarianceMatrix
-            int label = labels.at<int>(r, c);
-            //::Vec3b &pixel = dst.at<cv::Vec3b>(r, c);
-            *dst.ptr(r, c) = label;
-            //pixel = colors[label];
-        }
-    }
-    */
-
-    int whichLabel = 4;
-    cv::Mat tmp2 = (dst2 == whichLabel);
+    int whichLabel = 2;
+    cv::Mat tmp2 = (dst == whichLabel);
     cv::Mat outputImg1;
     cv::cvtColor(tmp2, outputImg1, cv::COLOR_GRAY2BGR);
 
     cv::Mat outputImg2;
-    outputImg2 = dst2*50;
-
-    cv::Mat mean, eigenvectors, eigenvalues;
-
-
+    outputImg2 = dst*50;
 
     int64 t0 = cv::getTickCount();
 /***************************************/
@@ -145,24 +159,67 @@ void Dialog::on_pushButton_open_clicked()
     cv::circle(outputImg1, featurePoint3, 5, cv::Scalar(255, 0, 0), -1);
     cv::circle(outputImg1, featurePoint4, 5, cv::Scalar(255, 0, 0), -1);
 
-    imageDisplay(origImg, tmp2, outputImg1, outputImg2);
+    imageDisplay(grayImg, tmp2, outputImg1, outputImg2);
 
 }
 
 void Dialog::on_pushButton_clicked()
 {
+    cv::Mat src_img, img_bool, img_color, img_gray;
+
+    QString imgName = QFileDialog::getOpenFileName(this, "Open a file", QDir::currentPath().append("/images"));
+
+    Adjustthreshold mThreshold;
+
+    mThreshold.readImg(imgName.toStdString());
+
+    src_img  = mThreshold.getOrigMat();
+    img_gray = mThreshold.getGrayMat();
+    cv::Mat labels;
+    cv::Mat stats;
+    cv::Mat centroids;
+
+    int nccomps = cv::connectedComponentsWithStats (
+          img_gray, //二值图像
+          labels,     //和原图一样大的标记图
+          stats, //nccomps×5的矩阵 表示每个连通区域的外接矩形和面积（pixel）
+          centroids //nccomps×2的矩阵 表示每个连通区域的质心
+          );
 
 
-    Eigen::Matrix<double, 10, 10> B;
-    Eigen::MatrixXd::Identity(10,10);
-    B.setIdentity(10,10);
+    std::vector<cv::Vec3b> colors(nccomps);
+    colors[0] = cv::Vec3b(0,0,0); // background pixels remain black.
+    for(int i = 1; i < nccomps; i++ ) {
+          colors[i] = cv::Vec3b(rand()%256, rand()%256, rand()%256);
 
-    std::cout << B << std::endl;
+          if( stats.at<int>(i, cv::CC_STAT_AREA) < 8000 )
+                colors[i] = cv::Vec3b(0,0,0); // small regions are painted with black too.
+    }
+    img_color = cv::Mat::zeros(src_img.size(), CV_8UC3);
+    for( int y = 0; y < img_color.rows; y++ )
+        for( int x = 0; x < img_color.cols; x++ )
+        {
+            int label = labels.at<int>(y, x);
+            CV_Assert(0 <= label && label <= nccomps);
+            img_color.at<cv::Vec3b>(y, x) = colors[label];
+        }
+    cv::cvtColor(img_color, img_bool, cv::COLOR_BGR2GRAY);
+    cv::threshold(img_bool, img_bool, 0, 255, cv::THRESH_BINARY);
+    int nLabels = cv::connectedComponentsWithStats(img_bool, labels, stats, centroids);
+    cv::Mat dst;
+    labels.convertTo(dst, CV_8U);
 
-    std::cout << B.eigenvalues() << std::endl;
-    Eigen::Matrix<double, 2, 2> A;
-    A(1, 1) = 1;
-    qDebug() << A(1, 1);
+    /*
+    img_bool = cv::Mat::zeros(src_img.size(), CV_8U);
+    for(int j = 0; j < img_bool.cols; j++)
+        for(int i = 0; i < img_bool.rows; i++)
+        {
+            int label = labels.at<int>(j, i);
+            img_bool.at<uchar>(j, i) = colors[label];
+        }
+    */
+
+    imageDisplay(img_gray, img_gray, img_color, dst*50);
 
 }
 
